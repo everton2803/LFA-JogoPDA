@@ -130,10 +130,10 @@ body {
 
 .dashboard {
   display: grid;
-  grid-template-columns: 1.65fr 1fr;
+  grid-template-columns: 1.75fr 1fr;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem;
-  max-width: 1580px;
+  max-width: 1660px;
   width: 100%;
   margin: 0 auto;
   flex: 1;
@@ -188,7 +188,7 @@ body {
 canvas {
   display: block;
   width: 100%;
-  max-width: 980px;
+  max-width: 960px;
   height: auto;
 }
 

@@ -27,7 +27,7 @@
       </div>
 
       <div class="canvas-wrapper">
-        <canvas id="gameCanvas" width="980" height="500"></canvas>
+        <canvas id="gameCanvas" width="960" height="580"></canvas>
         <div id="toast-feedback" class="toast hidden"></div>
       </div>
 
@@ -187,56 +187,44 @@
           <polygon points="22,235 48,223 48,247" fill="#38bdf8" />
 
           <!-- Transições (arestas) -->
-          <!-- q0 -> q1 -->
           <line x1="92" y1="235" x2="215" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="153" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">i, Z ; Z</text>
 
-          <!-- q1 -> q2 (curva esquerda) -->
           <path d="M 230 212 Q 195 150 230 92" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="165" y="145" fill="#fbbf24" font-size="11" text-anchor="middle">c, Z ; CZ</text>
           <text x="165" y="160" fill="#fbbf24" font-size="11" text-anchor="middle">c, K ; CK</text>
 
-          <!-- q2 -> q1 (curva direita) -->
           <path d="M 260 92 Q 295 150 260 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="315" y="152" fill="#94a3b8" font-size="11" text-anchor="middle">v, C ; C</text>
 
-          <!-- q1 -> q3 (curva esquerda) -->
           <path d="M 230 258 Q 195 320 230 378" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="165" y="315" fill="#a78bfa" font-size="11" text-anchor="middle">k, Z ; KZ</text>
           <text x="165" y="330" fill="#a78bfa" font-size="11" text-anchor="middle">k, C ; KC</text>
 
-          <!-- q3 -> q1 (curva direita) -->
           <path d="M 260 378 Q 295 320 260 258" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="315" y="322" fill="#94a3b8" font-size="11" text-anchor="middle">v, K ; K</text>
 
-          <!-- q1 -> q4 -->
           <line x1="272" y1="235" x2="435" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="355" y="218" fill="#e2e8f0" font-size="11" text-anchor="middle">p, C ; C</text>
           <text x="355" y="252" fill="#e2e8f0" font-size="11" text-anchor="middle">p, K ; K</text>
 
-          <!-- Loop em q4 -->
           <path d="M 448 212 C 430 155, 495 155, 477 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="462" y="146" fill="#34d399" font-size="11" text-anchor="middle">d, C ; λ</text>
           <text x="462" y="161" fill="#34d399" font-size="11" text-anchor="middle">s, K ; λ</text>
 
-          <!-- q4 -> q5 -->
           <line x1="489" y1="235" x2="625" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="557" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">f, Z ; Z</text>
 
-          <!-- Loop em q5 -->
           <path d="M 638 212 C 620 155, 685 155, 667 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="652" y="146" fill="#f472b6" font-size="11" text-anchor="middle">m, Z ; MZ</text>
           <text x="652" y="161" fill="#f472b6" font-size="11" text-anchor="middle">m, M ; MM</text>
 
-          <!-- q5 -> q6 -->
           <line x1="679" y1="235" x2="815" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="747" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">r, M ; M</text>
 
-          <!-- Loop em q6 -->
           <path d="M 828 212 C 810 155, 875 155, 857 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="842" y="156" fill="#34d399" font-size="11" text-anchor="middle">l, M ; λ</text>
 
-          <!-- q6 -> qf -->
           <line x1="869" y1="235" x2="1002" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
           <text x="935" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">e, Z ; Z</text>
 

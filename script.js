@@ -3,15 +3,16 @@
  * Fiel ao arquivo assalto_banco_nao_linear_pda.jff (8 estados: q0..q6, qf)
  */
 
+// Layout em 4 colunas x 3 linhas (960x580) — salas grandes (184x104) e zero sobreposição
 const STATES_META = {
-  q0: { name: "Beco / Entrada", x: 85, y: 250, color: "#38bdf8" },
-  q1: { name: "Saguão Central", x: 255, y: 250, color: "#38bdf8" },
-  q2: { name: "Sala de Segurança", x: 255, y: 78, color: "#fbbf24" },
-  q3: { name: "Sala de TI", x: 255, y: 422, color: "#a78bfa" },
-  q4: { name: "Portão Blindado", x: 435, y: 250, color: "#38bdf8" },
-  q5: { name: "Interior do Cofre", x: 605, y: 250, color: "#f472b6" },
-  q6: { name: "Corredor de Fuga", x: 765, y: 250, color: "#38bdf8" },
-  qf: { name: "Garagem (Fuga)", x: 905, y: 250, color: "#10b981" }
+  q0: { name: "Beco / Entrada",    x: 120, y: 290, color: "#38bdf8" },
+  q2: { name: "Sala de Segurança", x: 355, y: 92,  color: "#fbbf24" },
+  q1: { name: "Saguão Central",    x: 355, y: 290, color: "#38bdf8" },
+  q3: { name: "Sala de TI",        x: 355, y: 488, color: "#a78bfa" },
+  q4: { name: "Portão Blindado",   x: 595, y: 290, color: "#38bdf8" },
+  q5: { name: "Interior do Cofre", x: 835, y: 110, color: "#f472b6" },
+  q6: { name: "Corredor de Fuga",  x: 835, y: 290, color: "#38bdf8" },
+  qf: { name: "Garagem (Fuga)",    x: 835, y: 470, color: "#10b981" }
 };
 
 const SYMBOL_DESC = {
@@ -53,10 +54,10 @@ const TRANSITIONS = [
 // Estado global da simulação
 let pda = {
   state: "q0",
-  stack: ["Z"], // índice length-1 é o TOPO
+  stack: ["Z"],
   tape: [],
   cursor: -1,
-  status: "running", // "running" | "accepted" | "rejected"
+  status: "running",
   statusMessage: "Aguardando entrada em q₀ (Beco / Entrada).",
   logs: [],
   agentPos: { x: STATES_META.q0.x, y: STATES_META.q0.y },
@@ -142,7 +143,6 @@ function stepSymbol(symbol, fromScript = false) {
     return false;
   }
 
-  // Aplica pop e push (rule.push[0] fica no topo)
   pda.stack.pop();
   for (let i = rule.push.length - 1; i >= 0; i--) {
     pda.stack.push(rule.push[i]);
@@ -314,13 +314,13 @@ function handleDirection(dir) {
     else if (dir === "D") symbolToEmit = "f";
     else showToast("No Portão (q₄): W (usar Cartão), S (usar Kit) ou D (abrir Cofre).");
   } else if (st === "q5") {
-    if (dir === "W" || dir === "S") symbolToEmit = "m";
-    else if (dir === "D") symbolToEmit = "r";
-    else showToast("No Cofre (q₅): W/S (pegar malote) ou D (Corredor de Fuga).");
+    if (dir === "A" || dir === "W") symbolToEmit = "m";
+    else if (dir === "S" || dir === "D") symbolToEmit = "r";
+    else showToast("No Cofre (q₅): W (pegar malote) ou S/D (Corredor de Fuga).");
   } else if (st === "q6") {
-    if (dir === "W" || dir === "S") symbolToEmit = "l";
-    else if (dir === "D") symbolToEmit = "e";
-    else showToast("No Corredor (q₆): W/S (ocultar malote) ou D (escapar na Garagem).");
+    if (dir === "A" || dir === "W") symbolToEmit = "l";
+    else if (dir === "S" || dir === "D") symbolToEmit = "e";
+    else showToast("No Corredor (q₆): W (ocultar malote) ou S/D (escapar na Garagem).");
   }
 
   if (symbolToEmit) {
@@ -386,89 +386,111 @@ function updateUI(lastSymbol = null) {
     .join("");
 }
 
-// Renderização do Mapa no Canvas (980x500 — salas bem espaçadas, zero sobreposição)
-function drawCorridor(x1, y1, x2, y2, label) {
+// Renderização do Mapa no Canvas (960x580 — salas grandes 184x104, zero sobreposição)
+function drawCorridor(points, label, labelOffset = { x: 0, y: -14 }) {
   ctx.save();
   ctx.strokeStyle = "#1e293b";
-  ctx.lineWidth = 26;
+  ctx.lineWidth = 24;
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
   ctx.stroke();
 
-  ctx.strokeStyle = "#334155";
+  ctx.strokeStyle = "#475569";
   ctx.lineWidth = 2;
-  ctx.setLineDash([5, 5]);
+  ctx.setLineDash([6, 6]);
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
   ctx.stroke();
 
   if (label) {
     ctx.setLineDash([]);
-    ctx.fillStyle = "#94a3b8";
+    const midIdx = Math.floor((points.length - 1) / 2);
+    const mx = (points[midIdx].x + points[midIdx + 1].x) / 2 + labelOffset.x;
+    const my = (points[midIdx].y + points[midIdx + 1].y) / 2 + labelOffset.y;
+
+    ctx.fillStyle = "#0f172a";
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1;
+    const textW = ctx.measureText(label).width + 12;
+    ctx.beginPath();
+    ctx.roundRect(mx - textW / 2, my - 11, textW, 18, 5);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#cbd5e1";
     ctx.font = "bold 11px monospace";
     ctx.textAlign = "center";
-    if (x1 === x2) {
-      // Corredor vertical: coloca rótulo ao lado direito
-      ctx.textAlign = "left";
-      ctx.fillText(label, x1 + 18, (y1 + y2) / 2 + 4);
-    } else {
-      ctx.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 16);
-    }
+    ctx.fillText(label, mx, my + 2);
   }
   ctx.restore();
 }
 
 function drawRoom(key, meta) {
   const isCurrent = pda.state === key;
-  const w = 114;
-  const h = 74;
+  const w = 184;
+  const h = 104;
   const rx = meta.x - w / 2;
   const ry = meta.y - h / 2;
 
   ctx.save();
   ctx.fillStyle = isCurrent ? "rgba(56, 189, 248, 0.16)" : "#0f172a";
   ctx.strokeStyle = isCurrent ? meta.color : "#334155";
-  ctx.lineWidth = isCurrent ? 3 : 1.5;
+  ctx.lineWidth = isCurrent ? 3.5 : 2;
 
   ctx.beginPath();
-  ctx.roundRect(rx, ry, w, h, 10);
+  ctx.roundRect(rx, ry, w, h, 12);
   ctx.fill();
   ctx.stroke();
 
-  // Badge do estado
+  // Cabeçalho interno da sala
+  ctx.fillStyle = "rgba(30, 41, 59, 0.65)";
+  ctx.beginPath();
+  ctx.roundRect(rx + 2, ry + 2, w - 4, 28, [10, 10, 0, 0]);
+  ctx.fill();
+
+  // Badge do estado (canto superior esquerdo da sala)
   ctx.fillStyle = meta.color;
-  ctx.font = "bold 14px monospace";
+  ctx.font = "bold 15px monospace";
+  ctx.textAlign = "left";
+  ctx.fillText(key, rx + 12, ry + 21);
+
+  // Nome da sala (centralizado e bem legível)
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "bold 14px sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(key, meta.x, ry + 21);
+  ctx.fillText(meta.name, meta.x, ry + 54);
 
-  // Nome da sala
-  ctx.fillStyle = "#f1f5f9";
-  ctx.font = "600 11px sans-serif";
-  ctx.fillText(meta.name, meta.x, ry + 39);
-
-  // Dica contextual dentro da sala
+  // Dica contextual na base da sala
   ctx.fillStyle = "#94a3b8";
-  ctx.font = "10px monospace";
+  ctx.font = "12px monospace";
   const hints = {
     q0: "[D] Entrar (i)",
-    q1: "[W]Seg [S]TI [D]Port",
-    q2: "+Cartão C | [S]Voltar",
-    q3: "+Kit K | [W]Voltar",
-    q4: "[W]-C [S]-K [D]Cofre",
-    q5: "[W]+M | [D]Fuga(r)",
-    q6: "[W]-M | [D]Sair(e)",
-    qf: "OBJETIVO FINAL"
+    q1: "[W]Seg  [S]TI  [D]Portão",
+    q2: "+Cartão C  |  [S]Voltar",
+    q3: "+Kit K  |  [W]Voltar",
+    q4: "[W]-C  [S]-K  [D]Cofre",
+    q5: "[W]+M  |  [S/D]Fuga(r)",
+    q6: "[W]-M  |  [S/D]Sair(e)",
+    qf: "OBJETIVO FINAL (ACEITA)"
   };
-  ctx.fillText(hints[key] || "", meta.x, ry + 58);
+  ctx.fillText(hints[key] || "", meta.x, ry + 84);
   ctx.restore();
 }
 
 function renderLoop() {
-  pda.agentPos.x += (pda.targetPos.x - pda.agentPos.x) * 0.18;
-  pda.agentPos.y += (pda.targetPos.y - pda.agentPos.y) * 0.18;
+  // Posiciona o agente no canto superior direito da sala alvo (sem tampar textos)
+  const targetBadgeX = pda.targetPos.x + 68;
+  const targetBadgeY = pda.targetPos.y - 36;
+  pda.agentPos.x += (targetBadgeX - pda.agentPos.x) * 0.2;
+  pda.agentPos.y += (targetBadgeY - pda.agentPos.y) * 0.2;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -483,30 +505,33 @@ function renderLoop() {
   }
 
   // Corredores conectando as salas
-  drawCorridor(85, 250, 255, 250, "i");
-  drawCorridor(255, 250, 255, 78, "c / v");
-  drawCorridor(255, 250, 255, 422, "k / v");
-  drawCorridor(255, 250, 435, 250, "p");
-  drawCorridor(435, 250, 605, 250, "f (Z)");
-  drawCorridor(605, 250, 765, 250, "r");
-  drawCorridor(765, 250, 905, 250, "e (Z)");
+  drawCorridor([{ x: 120, y: 290 }, { x: 355, y: 290 }], "i", { x: 0, y: -18 });
+  drawCorridor([{ x: 355, y: 290 }, { x: 355, y: 92 }], "c / v", { x: 34, y: 0 });
+  drawCorridor([{ x: 355, y: 290 }, { x: 355, y: 488 }], "k / v", { x: 34, y: 0 });
+  drawCorridor([{ x: 355, y: 290 }, { x: 595, y: 290 }], "p", { x: 0, y: -18 });
+  // Portão (q4) -> Cofre (q5)
+  drawCorridor([{ x: 595, y: 290 }, { x: 595, y: 110 }, { x: 835, y: 110 }], "f (Z)", { x: -32, y: 0 });
+  // Cofre (q5) -> Corredor Fuga (q6)
+  drawCorridor([{ x: 835, y: 110 }, { x: 835, y: 290 }], "r", { x: 26, y: 0 });
+  // Corredor Fuga (q6) -> Garagem (qf)
+  drawCorridor([{ x: 835, y: 290 }, { x: 835, y: 470 }], "e (Z)", { x: 34, y: 0 });
 
   // Salas
   Object.entries(STATES_META).forEach(([key, meta]) => drawRoom(key, meta));
 
-  // Personagem (Agente)
+  // Personagem (Agente) no canto superior direito da sala atual
   ctx.save();
   ctx.fillStyle = pda.status === "rejected" ? "#ef4444" : "#38bdf8";
   ctx.beginPath();
-  ctx.arc(pda.agentPos.x, pda.agentPos.y - 4, 12, 0, Math.PI * 2);
+  ctx.arc(pda.agentPos.x, pda.agentPos.y, 11, 0, Math.PI * 2);
   ctx.fill();
-  ctx.lineWidth = 2.5;
+  ctx.lineWidth = 2;
   ctx.strokeStyle = "#0f172a";
   ctx.stroke();
 
   // Visor do agente
   ctx.fillStyle = "#0f172a";
-  ctx.fillRect(pda.agentPos.x - 5, pda.agentPos.y - 7, 10, 4);
+  ctx.fillRect(pda.agentPos.x - 5, pda.agentPos.y - 3, 10, 4);
   ctx.restore();
 
   requestAnimationFrame(renderLoop);
