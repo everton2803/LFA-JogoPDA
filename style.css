@@ -130,16 +130,16 @@ body {
 
 .dashboard {
   display: grid;
-  grid-template-columns: 1.45fr 1fr;
+  grid-template-columns: 1.65fr 1fr;
   gap: 1.25rem;
   padding: 1.25rem 1.5rem;
-  max-width: 1440px;
+  max-width: 1580px;
   width: 100%;
   margin: 0 auto;
   flex: 1;
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1120px) {
   .dashboard {
     grid-template-columns: 1fr;
   }
@@ -187,7 +187,8 @@ body {
 
 canvas {
   display: block;
-  max-width: 100%;
+  width: 100%;
+  max-width: 980px;
   height: auto;
 }
 

@@ -4,14 +4,14 @@
  */
 
 const STATES_META = {
-  q0: { name: "Beco / Entrada", x: 75, y: 220, color: "#38bdf8" },
-  q1: { name: "Saguão Central", x: 225, y: 220, color: "#38bdf8" },
-  q2: { name: "Sala de Segurança", x: 225, y: 75, color: "#fbbf24" },
-  q3: { name: "Sala de TI", x: 225, y: 365, color: "#a78bfa" },
-  q4: { name: "Portão Blindado", x: 390, y: 220, color: "#38bdf8" },
-  q5: { name: "Interior do Cofre", x: 525, y: 220, color: "#f472b6" },
-  q6: { name: "Corredor de Fuga", x: 635, y: 220, color: "#38bdf8" },
-  qf: { name: "Garagem (Fuga)", x: 715, y: 220, color: "#10b981" }
+  q0: { name: "Beco / Entrada", x: 85, y: 250, color: "#38bdf8" },
+  q1: { name: "Saguão Central", x: 255, y: 250, color: "#38bdf8" },
+  q2: { name: "Sala de Segurança", x: 255, y: 78, color: "#fbbf24" },
+  q3: { name: "Sala de TI", x: 255, y: 422, color: "#a78bfa" },
+  q4: { name: "Portão Blindado", x: 435, y: 250, color: "#38bdf8" },
+  q5: { name: "Interior do Cofre", x: 605, y: 250, color: "#f472b6" },
+  q6: { name: "Corredor de Fuga", x: 765, y: 250, color: "#38bdf8" },
+  qf: { name: "Garagem (Fuga)", x: 905, y: 250, color: "#10b981" }
 };
 
 const SYMBOL_DESC = {
@@ -113,11 +113,6 @@ function resetPDA(keepInput = true) {
   updateUI();
 }
 
-/**
- * Processa um único símbolo no PDA.
- * @param {string} symbol - Caractere de entrada
- * @param {boolean} fromScript - Se veio da fita pré-digitada ou de ação WASD em tempo real
- */
 function stepSymbol(symbol, fromScript = false) {
   if (pda.status === "rejected") {
     showToast("Execução já rejeitada. Reinicie para tentar novamente.", true);
@@ -163,7 +158,6 @@ function stepSymbol(symbol, fromScript = false) {
     text: `δ(${prevState}, ${symbol}, ${top}) → (${pda.state}, ${pushedStr}) • ${rule.desc}`
   });
 
-  // Verifica aceitação
   if (!fromScript) {
     if (pda.state === "qf") {
       pda.status = "accepted";
@@ -179,7 +173,7 @@ function stepSymbol(symbol, fromScript = false) {
   return true;
 }
 
-// Execução de roteiro por texto (completo ou passo a passo)
+// Execução de roteiro por texto
 let scriptQueue = [];
 let scriptIndex = 0;
 
@@ -274,7 +268,6 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   resetPDA(true);
 });
 
-// Botões dos 4 exemplos
 document.querySelectorAll(".example-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     const seq = btn.getAttribute("data-seq");
@@ -287,51 +280,46 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
   });
 });
 
-/**
- * Navegação espacial via WASD mapeada diretamente às salas do PDA
- */
 function handleDirection(dir) {
-  if (autoTimer) return; // Evita conflito durante animação de roteiro
+  if (autoTimer) return;
   if (pda.status === "rejected" || pda.status === "accepted") {
     showToast("Clique em Reiniciar (q₀) para iniciar uma nova tentativa.", true);
     return;
   }
 
-  // Se o usuário estava no meio de um roteiro manual, limpa fila de texto
   scriptQueue = [];
   scriptIndex = 0;
 
   const st = pda.state;
-  const top = getStackTop();
   let symbolToEmit = null;
 
   if (st === "q0") {
     if (dir === "D") symbolToEmit = "i";
     else showToast("Em q₀ (Beco), pressione D (Leste) para entrar no Saguão.");
   } else if (st === "q1") {
-    if (dir === "W") symbolToEmit = "c";      // Norte -> Segurança (coleta C)
-    else if (dir === "S") symbolToEmit = "k"; // Sul -> TI (coleta K)
-    else if (dir === "D") symbolToEmit = "p"; // Leste -> Portão Blindado
+    if (dir === "W") symbolToEmit = "c";
+    else if (dir === "S") symbolToEmit = "k";
+    else if (dir === "D") symbolToEmit = "p";
     else showToast("No Saguão (q₁): W (Segurança), S (TI) ou D (Portão).");
   } else if (st === "q2") {
-    if (dir === "S") symbolToEmit = "v";      // Sul -> volta ao Saguão
-    else if (dir === "W") symbolToEmit = "c"; // Tenta pegar de novo (rejeita se não houver regra)
+    if (dir === "S") symbolToEmit = "v";
+    else if (dir === "W") symbolToEmit = "c";
     else showToast("Na Sala de Segurança (q₂): pressione S para voltar ao Saguão.");
   } else if (st === "q3") {
-    if (dir === "W") symbolToEmit = "v";      // Norte -> volta ao Saguão
+    if (dir === "W") symbolToEmit = "v";
     else showToast("Na Sala de TI (q₃): pressione W para voltar ao Saguão.");
   } else if (st === "q4") {
-    if (dir === "W") symbolToEmit = "d";      // Desarma trava de Cartão (-C)
-    else if (dir === "S") symbolToEmit = "s"; // Desarma trava de Kit (-K)
-    else if (dir === "D") symbolToEmit = "f"; // Tenta abrir Cofre (exige topo Z)
+    if (dir === "W") symbolToEmit = "d";
+    else if (dir === "S") symbolToEmit = "s";
+    else if (dir === "D") symbolToEmit = "f";
     else showToast("No Portão (q₄): W (usar Cartão), S (usar Kit) ou D (abrir Cofre).");
   } else if (st === "q5") {
-    if (dir === "W" || dir === "S") symbolToEmit = "m"; // Coleta malote (+M)
-    else if (dir === "D") symbolToEmit = "r";           // Avança para Corredor de Fuga
+    if (dir === "W" || dir === "S") symbolToEmit = "m";
+    else if (dir === "D") symbolToEmit = "r";
     else showToast("No Cofre (q₅): W/S (pegar malote) ou D (Corredor de Fuga).");
   } else if (st === "q6") {
-    if (dir === "W" || dir === "S") symbolToEmit = "l"; // Oculta malote (-M)
-    else if (dir === "D") symbolToEmit = "e";           // Tenta escapar (exige topo Z)
+    if (dir === "W" || dir === "S") symbolToEmit = "l";
+    else if (dir === "D") symbolToEmit = "e";
     else showToast("No Corredor (q₆): W/S (ocultar malote) ou D (escapar na Garagem).");
   }
 
@@ -353,7 +341,6 @@ document.querySelectorAll(".key-btn").forEach((btn) => {
   btn.addEventListener("click", () => handleDirection(btn.getAttribute("data-dir")));
 });
 
-// Atualização da Interface (HUD, Fita, Pilha, Log)
 function updateUI(lastSymbol = null) {
   elState.textContent = pda.state;
   elStateName.textContent = STATES_META[pda.state].name;
@@ -361,7 +348,6 @@ function updateUI(lastSymbol = null) {
   elSymbolDesc.textContent = lastSymbol ? (SYMBOL_DESC[lastSymbol] || "") : "Nenhum ainda";
   elStackTop.textContent = getStackTop() || "ε";
 
-  // Banner de status
   elBanner.className = `status-banner ${pda.status}`;
   const titleEl = elBanner.querySelector(".status-title");
   if (pda.status === "accepted") titleEl.textContent = "✔ CADEIA ACEITA";
@@ -369,7 +355,6 @@ function updateUI(lastSymbol = null) {
   else titleEl.textContent = "● EM EXECUÇÃO";
   elDetail.textContent = pda.statusMessage;
 
-  // Fita
   if (pda.tape.length === 0) {
     elTape.innerHTML = `<span class="tape-empty">Nenhum símbolo processado</span>`;
   } else {
@@ -385,7 +370,6 @@ function updateUI(lastSymbol = null) {
       .join("");
   }
 
-  // Pilha visual
   elStack.innerHTML = pda.stack
     .map((sym, idx) => {
       const isTop = idx === pda.stack.length - 1;
@@ -397,17 +381,16 @@ function updateUI(lastSymbol = null) {
     })
     .join("");
 
-  // Log
   elLog.innerHTML = pda.logs
     .map((item) => `<li class="${item.ok ? "ok" : "err"}">${item.text}</li>`)
     .join("");
 }
 
-// Renderização do Mapa no Canvas
+// Renderização do Mapa no Canvas (980x500 — salas bem espaçadas, zero sobreposição)
 function drawCorridor(x1, y1, x2, y2, label) {
   ctx.save();
   ctx.strokeStyle = "#1e293b";
-  ctx.lineWidth = 24;
+  ctx.lineWidth = 26;
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(x1, y1);
@@ -424,18 +407,24 @@ function drawCorridor(x1, y1, x2, y2, label) {
 
   if (label) {
     ctx.setLineDash([]);
-    ctx.fillStyle = "#64748b";
+    ctx.fillStyle = "#94a3b8";
     ctx.font = "bold 11px monospace";
     ctx.textAlign = "center";
-    ctx.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 8);
+    if (x1 === x2) {
+      // Corredor vertical: coloca rótulo ao lado direito
+      ctx.textAlign = "left";
+      ctx.fillText(label, x1 + 18, (y1 + y2) / 2 + 4);
+    } else {
+      ctx.fillText(label, (x1 + x2) / 2, (y1 + y2) / 2 - 16);
+    }
   }
   ctx.restore();
 }
 
 function drawRoom(key, meta) {
   const isCurrent = pda.state === key;
-  const w = 96;
-  const h = 64;
+  const w = 114;
+  const h = 74;
   const rx = meta.x - w / 2;
   const ry = meta.y - h / 2;
 
@@ -451,21 +440,21 @@ function drawRoom(key, meta) {
 
   // Badge do estado
   ctx.fillStyle = meta.color;
-  ctx.font = "bold 13px monospace";
+  ctx.font = "bold 14px monospace";
   ctx.textAlign = "center";
-  ctx.fillText(key, meta.x, ry + 19);
+  ctx.fillText(key, meta.x, ry + 21);
 
   // Nome da sala
-  ctx.fillStyle = "#e2e8f0";
-  ctx.font = "10px sans-serif";
-  ctx.fillText(meta.name, meta.x, ry + 34);
+  ctx.fillStyle = "#f1f5f9";
+  ctx.font = "600 11px sans-serif";
+  ctx.fillText(meta.name, meta.x, ry + 39);
 
   // Dica contextual dentro da sala
   ctx.fillStyle = "#94a3b8";
-  ctx.font = "9px monospace";
+  ctx.font = "10px monospace";
   const hints = {
     q0: "[D] Entrar (i)",
-    q1: "[W]Seg [S]TI [D]Portão",
+    q1: "[W]Seg [S]TI [D]Port",
     q2: "+Cartão C | [S]Voltar",
     q3: "+Kit K | [W]Voltar",
     q4: "[W]-C [S]-K [D]Cofre",
@@ -473,12 +462,11 @@ function drawRoom(key, meta) {
     q6: "[W]-M | [D]Sair(e)",
     qf: "OBJETIVO FINAL"
   };
-  ctx.fillText(hints[key] || "", meta.x, ry + 51);
+  ctx.fillText(hints[key] || "", meta.x, ry + 58);
   ctx.restore();
 }
 
 function renderLoop() {
-  // Interpolação suave do agente
   pda.agentPos.x += (pda.targetPos.x - pda.agentPos.x) * 0.18;
   pda.agentPos.y += (pda.targetPos.y - pda.agentPos.y) * 0.18;
 
@@ -495,13 +483,13 @@ function renderLoop() {
   }
 
   // Corredores conectando as salas
-  drawCorridor(75, 220, 225, 220, "i");
-  drawCorridor(225, 220, 225, 75, "c / v");
-  drawCorridor(225, 220, 225, 365, "k / v");
-  drawCorridor(225, 220, 390, 220, "p");
-  drawCorridor(390, 220, 525, 220, "f (Z)");
-  drawCorridor(525, 220, 635, 220, "r");
-  drawCorridor(635, 220, 715, 220, "e (Z)");
+  drawCorridor(85, 250, 255, 250, "i");
+  drawCorridor(255, 250, 255, 78, "c / v");
+  drawCorridor(255, 250, 255, 422, "k / v");
+  drawCorridor(255, 250, 435, 250, "p");
+  drawCorridor(435, 250, 605, 250, "f (Z)");
+  drawCorridor(605, 250, 765, 250, "r");
+  drawCorridor(765, 250, 905, 250, "e (Z)");
 
   // Salas
   Object.entries(STATES_META).forEach(([key, meta]) => drawRoom(key, meta));
@@ -510,7 +498,7 @@ function renderLoop() {
   ctx.save();
   ctx.fillStyle = pda.status === "rejected" ? "#ef4444" : "#38bdf8";
   ctx.beginPath();
-  ctx.arc(pda.agentPos.x, pda.agentPos.y - 4, 11, 0, Math.PI * 2);
+  ctx.arc(pda.agentPos.x, pda.agentPos.y - 4, 12, 0, Math.PI * 2);
   ctx.fill();
   ctx.lineWidth = 2.5;
   ctx.strokeStyle = "#0f172a";
@@ -547,7 +535,6 @@ function populateDeltaTable() {
   ).join("");
 }
 
-// Inicialização
 populateDeltaTable();
 resetPDA();
 renderLoop();
