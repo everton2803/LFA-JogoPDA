@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operação Cofre LIFO — Autômato de Pilha (PDA)</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="badge">LFA • TRABALHO 02</span>
+      <h1>Operação Cofre LIFO <small>Simulador Interativo de Autômato de Pilha (PDA)</small></h1>
+    </div>
+    <div class="header-actions">
+      <button id="btn-diagram" class="btn btn-outline">Diagrama JFLAP &amp; Regras δ</button>
+      <button id="btn-reset" class="btn btn-danger">Reiniciar (q₀)</button>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <!-- COLUNA ESQUERDA: MAPA DO JOGO + CONTROLES -->
+    <section class="panel game-panel">
+      <div class="panel-header">
+        <h2>Planta do Banco (Mapa de Estados)</h2>
+        <span class="hint">Use <strong>W A S D</strong> ou as setas para mover o agente pelo mapa</span>
+      </div>
+
+      <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="760" height="440"></canvas>
+        <div id="toast-feedback" class="toast hidden"></div>
+      </div>
+
+      <!-- Controles WASD virtuais e legenda rápida -->
+      <div class="controls-bar">
+        <div class="wasd-pad" aria-label="Controles direcionais">
+          <div class="wasd-row">
+            <button class="key-btn" data-dir="W" title="Norte (W)">W</button>
+          </div>
+          <div class="wasd-row">
+            <button class="key-btn" data-dir="A" title="Oeste (A)">A</button>
+            <button class="key-btn" data-dir="S" title="Sul (S)">S</button>
+            <button class="key-btn" data-dir="D" title="Leste (D)">D</button>
+          </div>
+        </div>
+
+        <div class="legend-grid">
+          <div><code>i</code> Entrar no Saguão</div>
+          <div><code>c</code> Coletar Cartão (+C)</div>
+          <div><code>k</code> Coletar Kit TI (+K)</div>
+          <div><code>v</code> Voltar ao Saguão</div>
+          <div><code>p</code> Ir ao Portão</div>
+          <div><code>d</code> Usar Cartão (-C)</div>
+          <div><code>s</code> Usar Kit TI (-K)</div>
+          <div><code>f</code> Abrir Cofre (topo Z)</div>
+          <div><code>m</code> Pegar Malote (+M)</div>
+          <div><code>r</code> Ir p/ Corredor Fuga</div>
+          <div><code>l</code> Ocultar Malote (-M)</div>
+          <div><code>e</code> Fugir Garagem (topo Z)</div>
+        </div>
+      </div>
+
+      <!-- Modo Roteiro (Cadeia de Entrada) -->
+      <div class="script-box">
+        <label for="script-input"><strong>Modo Roteiro (Sequência de Símbolos Σ):</strong></label>
+        <div class="script-row">
+          <input
+            type="text"
+            id="script-input"
+            placeholder="Ex: icvkvpsdfmrle"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="btn-run" class="btn btn-primary">▶ Executar Roteiro</button>
+          <button id="btn-step" class="btn btn-secondary">⏭ Passo a Passo</button>
+        </div>
+
+        <div class="examples-box">
+          <span class="examples-label">4 Situações Sugeridas:</span>
+          <div class="examples-grid">
+            <button class="example-btn accept" data-seq="icvkvpsdfmrle">
+              <strong>1. icvkvpsdfmrle</strong>
+              <span>ACEITA • Rota Cartão → Kit (1 malote)</span>
+            </button>
+            <button class="example-btn accept" data-seq="ikvcvpdsfmmrlle">
+              <strong>2. ikvcvpdsfmmrlle</strong>
+              <span>ACEITA • Rota Kit → Cartão (2 malotes)</span>
+            </button>
+            <button class="example-btn reject" data-seq="icvkvpdsfmrle">
+              <strong>3. icvkvpdsfmrle</strong>
+              <span>REJEITADA • Ordem LIFO errada no portão</span>
+            </button>
+            <button class="example-btn reject" data-seq="icvkvpsdfmmrle">
+              <strong>4. icvkvpsdfmmrle</strong>
+              <span>REJEITADA • Fuga com malote não ocultado</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLUNA DIREITA: INSPEÇÃO DO AUTÔMATO DE PILHA EM TEMPO REAL -->
+    <aside class="panel pda-panel">
+      <div class="panel-header">
+        <h2>Monitor do PDA em Tempo Real</h2>
+      </div>
+
+      <!-- Status de Aceitação / Rejeição -->
+      <div id="status-banner" class="status-banner running">
+        <span class="status-title">EM EXECUÇÃO</span>
+        <span id="status-detail" class="status-detail">Aguardando entrada em q₀ (Beco / Entrada).</span>
+      </div>
+
+      <!-- Métricas Atuais -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Estado Atual</span>
+          <strong id="current-state" class="metric-value">q₀</strong>
+          <small id="current-state-name">Beco / Entrada</small>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Símbolo Lido</span>
+          <strong id="current-symbol" class="metric-value">-</strong>
+          <small id="current-symbol-desc">Nenhum ainda</small>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Topo da Pilha</span>
+          <strong id="stack-top" class="metric-value">Z</strong>
+          <small>Fundo inicial: Z</small>
+        </div>
+      </div>
+
+      <!-- Fita de Entrada -->
+      <div class="tape-section">
+        <div class="section-title">Fita de Entrada (Roteiro Gerado / Lido)</div>
+        <div id="tape-container" class="tape-container">
+          <span class="tape-empty">Nenhum símbolo processado</span>
+        </div>
+      </div>
+
+      <!-- Pilha Visual Vertical (LIFO) -->
+      <div class="stack-section">
+        <div class="section-title">Pilha de Memória (Γ) — Topo em Cima</div>
+        <div class="stack-visual-wrapper">
+          <div id="stack-container" class="stack-container">
+            <div class="stack-item base">Z <small>(Fundo)</small></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log de Transições Executadas -->
+      <div class="log-section">
+        <div class="section-title">Histórico de Transições δ</div>
+        <ul id="transition-log" class="transition-log"></ul>
+      </div>
+    </aside>
+  </main>
+
+  <!-- MODAL: DIAGRAMA JFLAP E DEFINIÇÃO FORMAL -->
+  <div id="diagram-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Definição Formal &amp; Diagrama de Estados (JFLAP)</h2>
+        <button id="btn-close-modal" class="btn btn-outline">✕ Fechar</button>
+      </div>
+
+      <div class="formal-spec">
+        <p><strong>M = (Q, Σ, Γ, δ, q₀, Z, F)</strong> com 8 estados (requisito: 5 a 10 estados):</p>
+        <ul>
+          <li><strong>Q</strong> = {q₀, q₁, q₂, q₃, q₄, q₅, q₆, qf}</li>
+          <li><strong>Σ</strong> = {i, c, k, v, p, d, s, f, m, r, l, e}</li>
+          <li><strong>Γ</strong> = {Z, C, K, M} (Z = símbolo inicial da pilha)</li>
+          <li><strong>F</strong> = {qf} (Aceitação por estado final após consumir toda a cadeia)</li>
+        </ul>
+      </div>
+
+      <!-- Diagrama SVG fiel ao arquivo .jff -->
+      <div class="svg-container">
+        <svg viewBox="0 0 1120 470" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+            </marker>
+          </defs>
+
+          <!-- Seta inicial q0 -->
+          <polygon points="22,235 48,223 48,247" fill="#38bdf8" />
+
+          <!-- Transições (arestas) -->
+          <!-- q0 -> q1 -->
+          <line x1="92" y1="235" x2="215" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="153" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">i, Z ; Z</text>
+
+          <!-- q1 -> q2 (curva esquerda) -->
+          <path d="M 230 212 Q 195 150 230 92" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="165" y="145" fill="#fbbf24" font-size="11" text-anchor="middle">c, Z ; CZ</text>
+          <text x="165" y="160" fill="#fbbf24" font-size="11" text-anchor="middle">c, K ; CK</text>
+
+          <!-- q2 -> q1 (curva direita) -->
+          <path d="M 260 92 Q 295 150 260 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="315" y="152" fill="#94a3b8" font-size="11" text-anchor="middle">v, C ; C</text>
+
+          <!-- q1 -> q3 (curva esquerda) -->
+          <path d="M 230 258 Q 195 320 230 378" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="165" y="315" fill="#a78bfa" font-size="11" text-anchor="middle">k, Z ; KZ</text>
+          <text x="165" y="330" fill="#a78bfa" font-size="11" text-anchor="middle">k, C ; KC</text>
+
+          <!-- q3 -> q1 (curva direita) -->
+          <path d="M 260 378 Q 295 320 260 258" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="315" y="322" fill="#94a3b8" font-size="11" text-anchor="middle">v, K ; K</text>
+
+          <!-- q1 -> q4 -->
+          <line x1="272" y1="235" x2="435" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="355" y="218" fill="#e2e8f0" font-size="11" text-anchor="middle">p, C ; C</text>
+          <text x="355" y="252" fill="#e2e8f0" font-size="11" text-anchor="middle">p, K ; K</text>
+
+          <!-- Loop em q4 -->
+          <path d="M 448 212 C 430 155, 495 155, 477 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="462" y="146" fill="#34d399" font-size="11" text-anchor="middle">d, C ; λ</text>
+          <text x="462" y="161" fill="#34d399" font-size="11" text-anchor="middle">s, K ; λ</text>
+
+          <!-- q4 -> q5 -->
+          <line x1="489" y1="235" x2="625" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="557" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">f, Z ; Z</text>
+
+          <!-- Loop em q5 -->
+          <path d="M 638 212 C 620 155, 685 155, 667 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="652" y="146" fill="#f472b6" font-size="11" text-anchor="middle">m, Z ; MZ</text>
+          <text x="652" y="161" fill="#f472b6" font-size="11" text-anchor="middle">m, M ; MM</text>
+
+          <!-- q5 -> q6 -->
+          <line x1="679" y1="235" x2="815" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="747" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">r, M ; M</text>
+
+          <!-- Loop em q6 -->
+          <path d="M 828 212 C 810 155, 875 155, 857 212" fill="none" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="842" y="156" fill="#34d399" font-size="11" text-anchor="middle">l, M ; λ</text>
+
+          <!-- q6 -> qf -->
+          <line x1="869" y1="235" x2="1002" y2="235" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <text x="935" y="225" fill="#e2e8f0" font-size="12" text-anchor="middle">e, Z ; Z</text>
+
+          <!-- Nós (Estados) -->
+          <!-- q0 -->
+          <circle cx="70" cy="235" r="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+          <text x="70" y="240" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q0</text>
+          <text x="70" y="275" fill="#94a3b8" font-size="11" text-anchor="middle">Entrada</text>
+
+          <!-- q1 -->
+          <circle cx="245" cy="235" r="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+          <text x="245" y="240" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q1</text>
+          <text x="245" y="275" fill="#94a3b8" font-size="11" text-anchor="middle">Saguão</text>
+
+          <!-- q2 -->
+          <circle cx="245" cy="70" r="24" fill="#1e293b" stroke="#fbbf24" stroke-width="2.5" />
+          <text x="245" y="75" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q2</text>
+          <text x="245" y="36" fill="#fbbf24" font-size="11" text-anchor="middle">Segurança</text>
+
+          <!-- q3 -->
+          <circle cx="245" cy="400" r="24" fill="#1e293b" stroke="#a78bfa" stroke-width="2.5" />
+          <text x="245" y="405" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q3</text>
+          <text x="245" y="442" fill="#a78bfa" font-size="11" text-anchor="middle">Sala TI</text>
+
+          <!-- q4 -->
+          <circle cx="462" cy="235" r="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+          <text x="462" y="240" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q4</text>
+          <text x="462" y="275" fill="#94a3b8" font-size="11" text-anchor="middle">Portão</text>
+
+          <!-- q5 -->
+          <circle cx="652" cy="235" r="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+          <text x="652" y="240" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q5</text>
+          <text x="652" y="275" fill="#94a3b8" font-size="11" text-anchor="middle">Cofre</text>
+
+          <!-- q6 -->
+          <circle cx="842" cy="235" r="24" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5" />
+          <text x="842" y="240" fill="#f8fafc" font-size="14" font-weight="bold" text-anchor="middle">q6</text>
+          <text x="842" y="275" fill="#94a3b8" font-size="11" text-anchor="middle">Corredor</text>
+
+          <!-- qf (duplo círculo) -->
+          <circle cx="1032" cy="235" r="26" fill="#064e3b" stroke="#10b981" stroke-width="2.5" />
+          <circle cx="1032" cy="235" r="20" fill="none" stroke="#10b981" stroke-width="2" />
+          <text x="1032" y="240" fill="#ecfdf5" font-size="14" font-weight="bold" text-anchor="middle">qf</text>
+          <text x="1032" y="277" fill="#10b981" font-size="11" text-anchor="middle">Garagem (Final)</text>
+        </svg>
+      </div>
+
+      <h3>Tabela Completa de Transições δ(estado, leitura, topo) = (próximo_estado, empilha)</h3>
+      <div class="table-scroll">
+        <table class="delta-table">
+          <thead>
+            <tr>
+              <th>Estado Atual</th>
+              <th>Entrada (Σ)</th>
+              <th>Topo Pilha</th>
+              <th>Próximo Estado</th>
+              <th>Novo Topo (Push)</th>
+              <th>Ação no Jogo</th>
+            </tr>
+          </thead>
+          <tbody id="delta-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
