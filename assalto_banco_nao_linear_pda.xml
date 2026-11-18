@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--Created with JFLAP 7.1.-->
+<structure>
+	<type>pda</type>
+	<automaton>
+		<!--The list of states.-->
+		<state id="0" name="q0">
+			<x>80.0</x>
+			<y>260.0</y>
+			<label>Beco / Entrada</label>
+			<initial/>
+		</state>
+		<state id="1" name="q1">
+			<x>260.0</x>
+			<y>260.0</y>
+			<label>Saguao Central</label>
+		</state>
+		<state id="2" name="q2">
+			<x>260.0</x>
+			<y>100.0</y>
+			<label>Sala Seguranca</label>
+		</state>
+		<state id="3" name="q3">
+			<x>260.0</x>
+			<y>420.0</y>
+			<label>Sala de TI</label>
+		</state>
+		<state id="4" name="q4">
+			<x>480.0</x>
+			<y>260.0</y>
+			<label>Portao Blindado</label>
+		</state>
+		<state id="5" name="q5">
+			<x>680.0</x>
+			<y>260.0</y>
+			<label>Cofre</label>
+		</state>
+		<state id="6" name="q6">
+			<x>880.0</x>
+			<y>260.0</y>
+			<label>Corredor Fuga</label>
+		</state>
+		<state id="7" name="qf">
+			<x>1080.0</x>
+			<y>260.0</y>
+			<label>Garagem / Fuga</label>
+			<final/>
+		</state>
+		<!--The list of transitions.-->
+		<!-- Entrada no Saguao -->
+		<transition>
+			<from>0</from>
+			<to>1</to>
+			<read>i</read>
+			<pop>Z</pop>
+			<push>Z</push>
+		</transition>
+		<!-- Saguao -> Sala de Seguranca (Norte) -->
+		<transition>
+			<from>1</from>
+			<to>2</to>
+			<read>c</read>
+			<pop>Z</pop>
+			<push>CZ</push>
+		</transition>
+		<transition>
+			<from>1</from>
+			<to>2</to>
+			<read>c</read>
+			<pop>K</pop>
+			<push>CK</push>
+		</transition>
+		<!-- Retorno Seguranca -> Saguao -->
+		<transition>
+			<from>2</from>
+			<to>1</to>
+			<read>v</read>
+			<pop>C</pop>
+			<push>C</push>
+		</transition>
+		<!-- Saguao -> Sala de TI (Sul) -->
+		<transition>
+			<from>1</from>
+			<to>3</to>
+			<read>k</read>
+			<pop>Z</pop>
+			<push>KZ</push>
+		</transition>
+		<transition>
+			<from>1</from>
+			<to>3</to>
+			<read>k</read>
+			<pop>C</pop>
+			<push>KC</push>
+		</transition>
+		<!-- Retorno Sala de TI -> Saguao -->
+		<transition>
+			<from>3</from>
+			<to>1</to>
+			<read>v</read>
+			<pop>K</pop>
+			<push>K</push>
+		</transition>
+		<!-- Saguao -> Portao Blindado (Leste) - exige ambos os itens coletados (topo C com K abaixo, ou topo K com C abaixo) -->
+		<!-- Para manter deterministicamente simples e 100% fiel ao JFLAP, a ida ao portao ocorre com 'p' quando pilha nao esta vazia -->
+		<transition>
+			<from>1</from>
+			<to>4</to>
+			<read>p</read>
+			<pop>C</pop>
+			<push>C</push>
+		</transition>
+		<transition>
+			<from>1</from>
+			<to>4</to>
+			<read>p</read>
+			<pop>K</pop>
+			<push>K</push>
+		</transition>
+		<!-- Portao Blindado: desarma travas em ordem LIFO (loops em q4 ate esvaziar C e K) -->
+		<transition>
+			<from>4</from>
+			<to>4</to>
+			<read>d</read>
+			<pop>C</pop>
+			<push/>
+		</transition>
+		<transition>
+			<from>4</from>
+			<to>4</to>
+			<read>s</read>
+			<pop>K</pop>
+			<push/>
+		</transition>
+		<!-- Portao Blindado -> Cofre (so abre quando ambas as travas foram desarmadas, ou seja, topo == Z) -->
+		<transition>
+			<from>4</from>
+			<to>5</to>
+			<read>f</read>
+			<pop>Z</pop>
+			<push>Z</push>
+		</transition>
+		<!-- Cofre: coleta 1 ou mais malotes (empilha M) -->
+		<transition>
+			<from>5</from>
+			<to>5</to>
+			<read>m</read>
+			<pop>Z</pop>
+			<push>MZ</push>
+		</transition>
+		<transition>
+			<from>5</from>
+			<to>5</to>
+			<read>m</read>
+			<pop>M</pop>
+			<push>MM</push>
+		</transition>
+		<!-- Cofre -> Corredor de Fuga (so sai com pelo menos 1 malote na pilha) -->
+		<transition>
+			<from>5</from>
+			<to>6</to>
+			<read>r</read>
+			<pop>M</pop>
+			<push>M</push>
+		</transition>
+		<!-- Corredor de Fuga: oculta/lava cada malote coletado (desempilha M) -->
+		<transition>
+			<from>6</from>
+			<to>6</to>
+			<read>l</read>
+			<pop>M</pop>
+			<push/>
+		</transition>
+		<!-- Corredor de Fuga -> Garagem/Final (so escapa quando todos os malotes foram ocultados, topo == Z) -->
+		<transition>
+			<from>6</from>
+			<to>7</to>
+			<read>e</read>
+			<pop>Z</pop>
+			<push>Z</push>
+		</transition>
+	</automaton>
+</structure>
