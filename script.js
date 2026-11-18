@@ -1,18 +1,17 @@
 /**
- * Operação Cofre LIFO — Motor do Autômato de Pilha (PDA) + Jogo Interativo
+ * Operação Cofre LIFO — Motor do Autômato de Pilha (PDA) + Planta Baixa Visual Top-Down
  * Fiel ao arquivo assalto_banco_nao_linear_pda.jff (8 estados: q0..q6, qf)
  */
 
-// Layout em 4 colunas x 3 linhas (960x580) — salas grandes (184x104) e zero sobreposição
 const STATES_META = {
-  q0: { name: "Beco / Entrada",    x: 120, y: 290, color: "#38bdf8" },
-  q2: { name: "Sala de Segurança", x: 355, y: 92,  color: "#fbbf24" },
-  q1: { name: "Saguão Central",    x: 355, y: 290, color: "#38bdf8" },
-  q3: { name: "Sala de TI",        x: 355, y: 488, color: "#a78bfa" },
-  q4: { name: "Portão Blindado",   x: 595, y: 290, color: "#38bdf8" },
-  q5: { name: "Interior do Cofre", x: 835, y: 110, color: "#f472b6" },
-  q6: { name: "Corredor de Fuga",  x: 835, y: 290, color: "#38bdf8" },
-  qf: { name: "Garagem (Fuga)",    x: 835, y: 470, color: "#10b981" }
+  q0: { name: "Beco / Entrada",    x: 115, y: 290, color: "#38bdf8" },
+  q2: { name: "Sala de Segurança", x: 350, y: 100, color: "#fbbf24" },
+  q1: { name: "Saguão Central",    x: 350, y: 290, color: "#38bdf8" },
+  q3: { name: "Sala de TI",        x: 350, y: 480, color: "#a78bfa" },
+  q4: { name: "Portão Blindado",   x: 590, y: 290, color: "#38bdf8" },
+  q5: { name: "Interior do Cofre", x: 830, y: 105, color: "#f472b6" },
+  q6: { name: "Corredor de Fuga",  x: 830, y: 290, color: "#38bdf8" },
+  qf: { name: "Garagem (Fuga)",    x: 830, y: 475, color: "#10b981" }
 };
 
 const SYMBOL_DESC = {
@@ -30,7 +29,6 @@ const SYMBOL_DESC = {
   e: "Escapar na Garagem (topo Z)"
 };
 
-// Tabela de Transições δ: (from, read, pop) -> { to, push, desc }
 const TRANSITIONS = [
   { from: "q0", read: "i", pop: "Z", to: "q1", push: ["Z"], desc: "Infiltra o saguão principal" },
   { from: "q1", read: "c", pop: "Z", to: "q2", push: ["C", "Z"], desc: "Vai à Segurança e clona Cartão C" },
@@ -51,7 +49,6 @@ const TRANSITIONS = [
   { from: "q6", read: "e", pop: "Z", to: "qf", push: ["Z"], desc: "Todos malotes ocultos (Z): fuga concluída!" }
 ];
 
-// Estado global da simulação
 let pda = {
   state: "q0",
   stack: ["Z"],
@@ -60,13 +57,13 @@ let pda = {
   status: "running",
   statusMessage: "Aguardando entrada em q₀ (Beco / Entrada).",
   logs: [],
-  agentPos: { x: STATES_META.q0.x, y: STATES_META.q0.y },
-  targetPos: { x: STATES_META.q0.x, y: STATES_META.q0.y }
+  agentPos: { x: STATES_META.q0.x, y: STATES_META.q0.y + 10 },
+  waypoints: [],
+  walkPhase: 0
 };
 
 let autoTimer = null;
 
-// Elementos DOM
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const elState = document.getElementById("current-state");
@@ -107,11 +104,30 @@ function resetPDA(keepInput = true) {
     status: "running",
     statusMessage: "Pronto em q₀. Mova com WASD ou execute um roteiro.",
     logs: [],
-    agentPos: { x: STATES_META.q0.x, y: STATES_META.q0.y },
-    targetPos: { x: STATES_META.q0.x, y: STATES_META.q0.y }
+    agentPos: { x: STATES_META.q0.x, y: STATES_META.q0.y + 10 },
+    waypoints: [],
+    walkPhase: 0
   };
   if (!keepInput) elScriptInput.value = "";
   updateUI();
+}
+
+function enqueueMovement(fromSt, toSt) {
+  const dest = { x: STATES_META[toSt].x, y: STATES_META[toSt].y + 10 };
+  if (fromSt === toSt) {
+    pda.waypoints = [
+      { x: dest.x - 16, y: dest.y - 5 },
+      { x: dest.x + 16, y: dest.y - 5 },
+      dest
+    ];
+  } else if (fromSt === "q4" && toSt === "q5") {
+    pda.waypoints = [
+      { x: 590, y: 105 + 10 },
+      dest
+    ];
+  } else {
+    pda.waypoints = [dest];
+  }
 }
 
 function stepSymbol(symbol, fromScript = false) {
@@ -150,7 +166,7 @@ function stepSymbol(symbol, fromScript = false) {
 
   const prevState = pda.state;
   pda.state = rule.to;
-  pda.targetPos = { x: STATES_META[pda.state].x, y: STATES_META[pda.state].y };
+  enqueueMovement(prevState, pda.state);
 
   const pushedStr = rule.push.length ? rule.push.join("") : "λ";
   pda.logs.unshift({
@@ -173,7 +189,6 @@ function stepSymbol(symbol, fromScript = false) {
   return true;
 }
 
-// Execução de roteiro por texto
 let scriptQueue = [];
 let scriptIndex = 0;
 
@@ -248,7 +263,7 @@ document.getElementById("btn-run").addEventListener("click", () => {
   if (!prepareScript()) return;
   autoTimer = setInterval(() => {
     advanceScriptStep();
-  }, 550);
+  }, 600);
 });
 
 document.getElementById("btn-step").addEventListener("click", () => {
@@ -275,7 +290,7 @@ document.querySelectorAll(".example-btn").forEach((btn) => {
     if (prepareScript()) {
       autoTimer = setInterval(() => {
         advanceScriptStep();
-      }, 500);
+      }, 550);
     }
   });
 });
@@ -386,158 +401,344 @@ function updateUI(lastSymbol = null) {
     .join("");
 }
 
-// Renderização do Mapa no Canvas (960x580 — salas grandes 184x104, zero sobreposição)
-function drawCorridor(points, label, labelOffset = { x: 0, y: -14 }) {
+/* ============================================================================
+ * DESENHO DA PLANTA BAIXA DO BANCO (TOP-DOWN ARQUITETÔNICO + CENÁRIO)
+ * ============================================================================ */
+
+function drawTree(x, y, r) {
   ctx.save();
-  ctx.strokeStyle = "#1e293b";
-  ctx.lineWidth = 24;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath(); ctx.arc(x + 4, y + 5, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#14532d";
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#166534";
+  ctx.beginPath(); ctx.arc(x - r * 0.2, y - r * 0.2, r * 0.72, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#22c55e";
+  ctx.globalAlpha = 0.25;
+  ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawCorridorFloor(points, label, offset = { x: 0, y: 0 }) {
+  ctx.save();
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 42;
+  ctx.lineCap = "butt";
+  ctx.lineJoin = "miter";
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(points[i].x, points[i].y);
-  }
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
   ctx.stroke();
 
-  ctx.strokeStyle = "#475569";
+  ctx.strokeStyle = "#1e293b";
+  ctx.lineWidth = 34;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 6]);
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(points[i].x, points[i].y);
-  }
+  for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
   ctx.stroke();
+  ctx.setLineDash([]);
 
   if (label) {
-    ctx.setLineDash([]);
     const midIdx = Math.floor((points.length - 1) / 2);
-    const mx = (points[midIdx].x + points[midIdx + 1].x) / 2 + labelOffset.x;
-    const my = (points[midIdx].y + points[midIdx + 1].y) / 2 + labelOffset.y;
+    const mx = (points[midIdx].x + points[midIdx + 1].x) / 2 + offset.x;
+    const my = (points[midIdx].y + points[midIdx + 1].y) / 2 + offset.y;
 
-    ctx.fillStyle = "#0f172a";
-    ctx.strokeStyle = "#334155";
+    ctx.font = "bold 11px monospace";
+    const tw = ctx.measureText(label).width + 12;
+    ctx.fillStyle = "#090d16";
+    ctx.strokeStyle = "#38bdf8";
     ctx.lineWidth = 1;
-    const textW = ctx.measureText(label).width + 12;
     ctx.beginPath();
-    ctx.roundRect(mx - textW / 2, my - 11, textW, 18, 5);
+    ctx.roundRect(mx - tw / 2, my - 10, tw, 18, 5);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = "#cbd5e1";
-    ctx.font = "bold 11px monospace";
+    ctx.fillStyle = "#e0f2fe";
     ctx.textAlign = "center";
-    ctx.fillText(label, mx, my + 2);
+    ctx.fillText(label, mx, my + 3);
+  }
+  ctx.restore();
+}
+
+function drawRoomProps(key, rx, ry, w, h) {
+  ctx.save();
+  if (key === "q0") {
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(rx + 28, ry + 75, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx + 21, ry + 75); ctx.lineTo(rx + 35, ry + 75); ctx.stroke();
+    ctx.fillStyle = "#78350f";
+    ctx.fillRect(rx + 145, ry + 64, 24, 18);
+    ctx.strokeStyle = "#b45309";
+    ctx.strokeRect(rx + 145, ry + 64, 24, 18);
+  } else if (key === "q1") {
+    ctx.fillStyle = "#334155";
+    ctx.fillRect(rx + 36, ry + 34, 112, 12);
+    ctx.strokeStyle = "#64748b";
+    ctx.strokeRect(rx + 36, ry + 34, 112, 12);
+    ctx.fillStyle = "rgba(56, 189, 248, 0.08)";
+    ctx.fillRect(rx + 46, ry + 54, 92, 34);
+  } else if (key === "q2") {
+    ctx.fillStyle = "#1e293b";
+    ctx.fillRect(rx + 25, ry + 32, 85, 16);
+    ctx.fillStyle = "#0ea5e9";
+    ctx.fillRect(rx + 32, ry + 34, 18, 6);
+    ctx.fillRect(rx + 56, ry + 34, 18, 6);
+    ctx.fillRect(rx + 80, ry + 34, 18, 6);
+    ctx.fillStyle = "#fbbf24";
+    ctx.beginPath(); ctx.roundRect(rx + 132, ry + 42, 32, 20, 4); ctx.fill();
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(rx + 132, ry + 47, 32, 4);
+    ctx.font = "bold 9px monospace";
+    ctx.fillText("C", rx + 154, ry + 59);
+  } else if (key === "q3") {
+    for (let i = 0; i < 3; i++) {
+      const sx = rx + 20 + i * 32;
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(sx, ry + 32, 24, 36);
+      ctx.strokeStyle = "#475569";
+      ctx.strokeRect(sx, ry + 32, 24, 36);
+      ctx.fillStyle = i % 2 === 0 ? "#22c55e" : "#a78bfa";
+      ctx.fillRect(sx + 4, ry + 38, 4, 4);
+      ctx.fillRect(sx + 12, ry + 38, 4, 4);
+    }
+    ctx.fillStyle = "#8b5cf6";
+    ctx.beginPath(); ctx.roundRect(rx + 132, ry + 42, 32, 22, 4); ctx.fill();
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("KIT", rx + 148, ry + 56);
+  } else if (key === "q4") {
+    const unlocked = getStackTop() === "Z" && (pda.state === "q4" || pda.state === "q5" || pda.state === "q6" || pda.state === "qf");
+    ctx.fillStyle = "#475569";
+    ctx.fillRect(rx + 144, ry + 26, 14, 18);
+    ctx.fillRect(rx + 144, ry + 72, 14, 18);
+    ctx.strokeStyle = unlocked ? "#10b981" : "#ef4444";
+    ctx.lineWidth = unlocked ? 2 : 4;
+    if (unlocked) ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(rx + 151, ry + 44);
+    ctx.lineTo(rx + 151, ry + 72);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#fbbf24";
+    ctx.fillRect(rx + 22, ry + 36, 14, 14);
+    ctx.fillStyle = "#a78bfa";
+    ctx.fillRect(rx + 22, ry + 56, 14, 14);
+  } else if (key === "q5") {
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(rx + 28, ry + 56, 16, 0, Math.PI * 2); ctx.stroke();
+    const goldCoords = [[126, 36], [148, 36], [137, 52], [126, 68], [148, 68]];
+    goldCoords.forEach(([gx, gy]) => {
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillRect(rx + gx, ry + gy, 18, 10);
+      ctx.strokeStyle = "#fef08a";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rx + gx, ry + gy, 18, 10);
+    });
+  } else if (key === "q6") {
+    ctx.fillStyle = "#334155";
+    ctx.fillRect(rx + 22, ry + 34, 28, 22);
+    ctx.fillStyle = "#f472b6";
+    ctx.font = "bold 9px monospace";
+    ctx.fillText("STASH", rx + 36, ry + 48);
+    ctx.fillStyle = "rgba(239, 68, 68, 0.14)";
+    ctx.beginPath();
+    ctx.moveTo(rx + 165, ry + 32);
+    ctx.lineTo(rx + 115, ry + 55);
+    ctx.lineTo(rx + 145, ry + 78);
+    ctx.closePath();
+    ctx.fill();
+  } else if (key === "qf") {
+    const cx = rx + 116;
+    const cy = ry + 38;
+    ctx.fillStyle = "#10b981";
+    ctx.beginPath(); ctx.roundRect(cx, cy, 52, 28, 6); ctx.fill();
+    ctx.fillStyle = "#064e3b";
+    ctx.fillRect(cx + 30, cy + 4, 12, 20);
+    ctx.fillStyle = "#fef08a";
+    ctx.fillRect(cx + 49, cy + 4, 3, 5);
+    ctx.fillRect(cx + 49, cy + 19, 3, 5);
   }
   ctx.restore();
 }
 
 function drawRoom(key, meta) {
   const isCurrent = pda.state === key;
-  const w = 184;
-  const h = 104;
+  const w = 186;
+  const h = 108;
   const rx = meta.x - w / 2;
   const ry = meta.y - h / 2;
 
   ctx.save();
-  ctx.fillStyle = isCurrent ? "rgba(56, 189, 248, 0.16)" : "#0f172a";
-  ctx.strokeStyle = isCurrent ? meta.color : "#334155";
-  ctx.lineWidth = isCurrent ? 3.5 : 2;
-
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
   ctx.beginPath();
-  ctx.roundRect(rx, ry, w, h, 12);
+  ctx.roundRect(rx + 5, ry + 6, w, h, 10);
+  ctx.fill();
+
+  if (key === "q0") ctx.fillStyle = "#1e293b";
+  else if (key === "qf") ctx.fillStyle = "#0f172a";
+  else ctx.fillStyle = "#131c31";
+
+  ctx.strokeStyle = isCurrent ? meta.color : "#475569";
+  ctx.lineWidth = isCurrent ? 3.5 : 2.5;
+  ctx.beginPath();
+  ctx.roundRect(rx, ry, w, h, 10);
   ctx.fill();
   ctx.stroke();
 
-  // Cabeçalho interno da sala
-  ctx.fillStyle = "rgba(30, 41, 59, 0.65)";
+  drawRoomProps(key, rx, ry, w, h);
+
+  ctx.fillStyle = "rgba(9, 13, 22, 0.86)";
   ctx.beginPath();
-  ctx.roundRect(rx + 2, ry + 2, w - 4, 28, [10, 10, 0, 0]);
+  ctx.roundRect(rx + 2, ry + 2, w - 4, 24, [8, 8, 0, 0]);
   ctx.fill();
 
-  // Badge do estado (canto superior esquerdo da sala)
   ctx.fillStyle = meta.color;
-  ctx.font = "bold 15px monospace";
+  ctx.font = "bold 13px monospace";
   ctx.textAlign = "left";
-  ctx.fillText(key, rx + 12, ry + 21);
+  ctx.fillText(key, rx + 10, ry + 18);
 
-  // Nome da sala (centralizado e bem legível)
   ctx.fillStyle = "#f8fafc";
-  ctx.font = "bold 14px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(meta.name, meta.x, ry + 54);
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(meta.name, rx + w - 10, ry + 18);
 
-  // Dica contextual na base da sala
-  ctx.fillStyle = "#94a3b8";
-  ctx.font = "12px monospace";
+  ctx.fillStyle = "rgba(9, 13, 22, 0.82)";
+  ctx.beginPath();
+  ctx.roundRect(rx + 2, ry + h - 22, w - 4, 20, [0, 0, 8, 8]);
+  ctx.fill();
+
+  ctx.fillStyle = "#cbd5e1";
+  ctx.font = "10.5px monospace";
+  ctx.textAlign = "center";
   const hints = {
-    q0: "[D] Entrar (i)",
-    q1: "[W]Seg  [S]TI  [D]Portão",
-    q2: "+Cartão C  |  [S]Voltar",
-    q3: "+Kit K  |  [W]Voltar",
-    q4: "[W]-C  [S]-K  [D]Cofre",
-    q5: "[W]+M  |  [S/D]Fuga(r)",
-    q6: "[W]-M  |  [S/D]Sair(e)",
-    qf: "OBJETIVO FINAL (ACEITA)"
+    q0: "[D] Entrar no Banco (i)",
+    q1: "[W]Seg [S]TI [D]Portão",
+    q2: "+Cartão(C) • [S]Voltar",
+    q3: "+Kit(K) • [W]Voltar",
+    q4: "[W]-C [S]-K [D]Cofre",
+    q5: "[W]+Malote • [D]Fuga(r)",
+    q6: "[W]-Malote • [D]Sair(e)",
+    qf: "FUGA CONCLUÍDA (ACEITA)"
   };
-  ctx.fillText(hints[key] || "", meta.x, ry + 84);
+  ctx.fillText(hints[key] || "", meta.x, ry + h - 8);
+  ctx.restore();
+}
+
+function drawAgent(x, y, isMoving) {
+  const bob = isMoving ? Math.sin(pda.walkPhase) * 2.5 : 0;
+  const footSwing = isMoving ? Math.sin(pda.walkPhase) * 4 : 0;
+
+  ctx.save();
+  ctx.translate(x, y + bob);
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.beginPath();
+  ctx.ellipse(0, 14 - bob, 11, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath(); ctx.arc(-5, 11 + footSwing, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(5, 11 - footSwing, 3.5, 0, Math.PI * 2); ctx.fill();
+
+  const hasItems = pda.stack.length > 1;
+  ctx.fillStyle = hasItems ? "#f59e0b" : "#334155";
+  ctx.beginPath();
+  ctx.roundRect(-13, -4, 6, 12, 2);
+  ctx.fill();
+
+  ctx.fillStyle = pda.status === "rejected" ? "#ef4444" : "#1e293b";
+  ctx.strokeStyle = pda.status === "accepted" ? "#10b981" : "#38bdf8";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(0, 2, 11, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.beginPath();
+  ctx.arc(0, -4, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = pda.status === "rejected" ? "#ef4444" : "#0284c7";
+  ctx.fillRect(-5, -6, 10, 3.5);
+  ctx.fillStyle = "#38bdf8";
+  ctx.fillRect(-4, -5.5, 3, 2);
+  ctx.fillRect(1, -5.5, 3, 2);
+
   ctx.restore();
 }
 
 function renderLoop() {
-  // Posiciona o agente no canto superior direito da sala alvo (sem tampar textos)
-  const targetBadgeX = pda.targetPos.x + 68;
-  const targetBadgeY = pda.targetPos.y - 36;
-  pda.agentPos.x += (targetBadgeX - pda.agentPos.x) * 0.2;
-  pda.agentPos.y += (targetBadgeY - pda.agentPos.y) * 0.2;
+  let isMoving = false;
+  if (pda.waypoints.length > 0) {
+    const wp = pda.waypoints[0];
+    const dx = wp.x - pda.agentPos.x;
+    const dy = wp.y - pda.agentPos.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 3) {
+      isMoving = true;
+      pda.walkPhase += 0.35;
+      pda.agentPos.x += dx * 0.16;
+      pda.agentPos.y += dy * 0.16;
+    } else {
+      pda.agentPos.x = wp.x;
+      pda.agentPos.y = wp.y;
+      pda.waypoints.shift();
+    }
+  }
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Grid de fundo estilo planta arquitetônica
-  ctx.strokeStyle = "rgba(30, 41, 59, 0.45)";
-  ctx.lineWidth = 1;
-  for (let x = 0; x < canvas.width; x += 40) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-  }
-  for (let y = 0; y < canvas.height; y += 40) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-  }
+  ctx.fillStyle = "#080f1e";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Corredores conectando as salas
-  drawCorridor([{ x: 120, y: 290 }, { x: 355, y: 290 }], "i", { x: 0, y: -18 });
-  drawCorridor([{ x: 355, y: 290 }, { x: 355, y: 92 }], "c / v", { x: 34, y: 0 });
-  drawCorridor([{ x: 355, y: 290 }, { x: 355, y: 488 }], "k / v", { x: 34, y: 0 });
-  drawCorridor([{ x: 355, y: 290 }, { x: 595, y: 290 }], "p", { x: 0, y: -18 });
-  // Portão (q4) -> Cofre (q5)
-  drawCorridor([{ x: 595, y: 290 }, { x: 595, y: 110 }, { x: 835, y: 110 }], "f (Z)", { x: -32, y: 0 });
-  // Cofre (q5) -> Corredor Fuga (q6)
-  drawCorridor([{ x: 835, y: 110 }, { x: 835, y: 290 }], "r", { x: 26, y: 0 });
-  // Corredor Fuga (q6) -> Garagem (qf)
-  drawCorridor([{ x: 835, y: 290 }, { x: 835, y: 470 }], "e (Z)", { x: 34, y: 0 });
-
-  // Salas
-  Object.entries(STATES_META).forEach(([key, meta]) => drawRoom(key, meta));
-
-  // Personagem (Agente) no canto superior direito da sala atual
   ctx.save();
-  ctx.fillStyle = pda.status === "rejected" ? "#ef4444" : "#38bdf8";
+  ctx.fillStyle = "#0c1527";
+  ctx.strokeStyle = "#334155";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.arc(pda.agentPos.x, pda.agentPos.y, 11, 0, Math.PI * 2);
+  ctx.roundRect(232, 24, 710, 532, 18);
   ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#0f172a";
   ctx.stroke();
 
-  // Visor do agente
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(pda.agentPos.x - 5, pda.agentPos.y - 3, 10, 4);
+  ctx.fillStyle = "rgba(148, 163, 184, 0.28)";
+  ctx.font = "bold 11px monospace";
+  ctx.textAlign = "right";
+  ctx.fillText("PLANTA BAIXA • BANCO CENTRAL LIFO", 926, 44);
   ctx.restore();
+
+  drawTree(45, 70, 22);
+  drawTree(95, 48, 16);
+  drawTree(175, 65, 20);
+  drawTree(50, 175, 18);
+  drawTree(48, 415, 21);
+  drawTree(110, 485, 24);
+  drawTree(178, 515, 17);
+
+  drawCorridorFloor([{ x: 115, y: 290 }, { x: 350, y: 290 }], "i", { x: -12, y: -26 });
+  drawCorridorFloor([{ x: 350, y: 290 }, { x: 350, y: 100 }], "c / v", { x: 42, y: 0 });
+  drawCorridorFloor([{ x: 350, y: 290 }, { x: 350, y: 480 }], "k / v", { x: 42, y: 0 });
+  drawCorridorFloor([{ x: 350, y: 290 }, { x: 590, y: 290 }], "p", { x: 0, y: -26 });
+  drawCorridorFloor([{ x: 590, y: 290 }, { x: 590, y: 105 }, { x: 830, y: 105 }], "f (Z)", { x: -42, y: 0 });
+  drawCorridorFloor([{ x: 830, y: 105 }, { x: 830, y: 290 }], "r", { x: 36, y: 0 });
+  drawCorridorFloor([{ x: 830, y: 290 }, { x: 830, y: 475 }], "e (Z)", { x: 42, y: 0 });
+
+  Object.entries(STATES_META).forEach(([key, meta]) => drawRoom(key, meta));
+  drawAgent(pda.agentPos.x, pda.agentPos.y, isMoving);
 
   requestAnimationFrame(renderLoop);
 }
 
-// Modal & Tabela Delta
 const modal = document.getElementById("diagram-modal");
 document.getElementById("btn-diagram").addEventListener("click", () => modal.classList.remove("hidden"));
 document.getElementById("btn-close-modal").addEventListener("click", () => modal.classList.add("hidden"));
