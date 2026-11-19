@@ -9,9 +9,16 @@ import {
 import {
   STATES_META,
   SYMBOL_DESC,
-  gateActionForDirection,
   physicalRoomByState,
 } from "./src/game-config.js";
+import {
+  appendMovementPath,
+  directionForKey,
+  getDirectionAction,
+  getMovementPath,
+  isTextEntryTarget,
+  unavailableDirectionMessage,
+} from "./src/game-controls.js";
 
 let pda = {
   ...createInitialConfiguration(),
@@ -75,22 +82,10 @@ function resetPDA(keepInput = true) {
 }
 
 function enqueueMovement(fromSt, toSt) {
-  const fromRoom = physicalRoomByState[fromSt];
-  const toRoom = physicalRoomByState[toSt];
-
-  if (fromRoom === toRoom) {
-    return;
-  }
-
-  const dest = { x: STATES_META[toSt].x, y: STATES_META[toSt].y + 10 };
-  if (fromRoom === "q4" && toRoom === "q5") {
-    pda.waypoints = [
-      { x: 590, y: 105 + 10 },
-      dest
-    ];
-  } else {
-    pda.waypoints = [dest];
-  }
+  pda.waypoints = appendMovementPath(
+    pda.waypoints,
+    getMovementPath(fromSt, toSt),
+  );
 }
 
 function stepSymbol(symbol, fromScript = false) {
@@ -100,12 +95,17 @@ function stepSymbol(symbol, fromScript = false) {
   }
 
   const top = getStackTop();
+  const result = applyTransition(pda, symbol);
+
+  if (!result && !fromScript) {
+    showToast(`Movimento não disponível em ${pda.state}. Nenhum símbolo foi consumido.`, true);
+    return false;
+  }
+
   if (!fromScript) {
     pda.tape.push(symbol);
     pda.cursor = pda.tape.length - 1;
   }
-
-  const result = applyTransition(pda, symbol);
 
   if (!result) {
     pda.status = "rejected";
@@ -260,58 +260,44 @@ function handleDirection(dir) {
     return;
   }
 
+  const action = getDirectionAction(pda, dir);
+  if (!action) {
+    showToast(unavailableDirectionMessage(pda, dir), true);
+    return;
+  }
+
   scriptQueue = [];
   scriptIndex = 0;
-
-  const st = pda.state;
-  let symbolToEmit = null;
-
-  if (st === "q0") {
-    if (dir === "D") symbolToEmit = "i";
-    else showToast("Em q₀ (Beco), pressione D (Leste) para entrar no Saguão.");
-  } else if (st === "q1") {
-    if (dir === "W") symbolToEmit = "c";
-    else if (dir === "S") symbolToEmit = "k";
-    else if (dir === "D") symbolToEmit = "p";
-    else showToast("No Saguão (q₁): W (Segurança), S (TI) ou D (Portão).");
-  } else if (st === "q2") {
-    if (dir === "S") symbolToEmit = "v";
-    else if (dir === "W") symbolToEmit = "c";
-    else showToast("Na Sala de Segurança (q₂): pressione S para voltar ao Saguão.");
-  } else if (st === "q3") {
-    if (dir === "W") symbolToEmit = "v";
-    else showToast("Na Sala de TI (q₃): pressione W para voltar ao Saguão.");
-  } else if (st === "q4") {
-    symbolToEmit = gateActionForDirection(st, dir);
-    if (!symbolToEmit) showToast("No Portão (q₄), use W (Cartão) ou S (Kit). D abre o cofre somente em q₈.");
-  } else if (st === "q7") {
-    symbolToEmit = gateActionForDirection(st, dir);
-    if (!symbolToEmit) showToast("No Portão (q₇), use W ou S para apresentar a segunda credencial. D ainda não abre o cofre.");
-  } else if (st === "q8") {
-    symbolToEmit = gateActionForDirection(st, dir);
-    if (!symbolToEmit) showToast("No Portão (q₈), use D para abrir o cofre; W e S tentam uma credencial restante.");
-  } else if (st === "q5") {
-    if (dir === "A" || dir === "W") symbolToEmit = "m";
-    else if (dir === "S" || dir === "D") symbolToEmit = "r";
-    else showToast("No Cofre (q₅): W (pegar malote) ou S/D (Corredor de Fuga).");
-  } else if (st === "q6") {
-    if (dir === "A" || dir === "W") symbolToEmit = "l";
-    else if (dir === "S" || dir === "D") symbolToEmit = "e";
-    else showToast("No Corredor (q₆): W (ocultar malote) ou S/D (escapar na Garagem).");
-  }
-
-  if (symbolToEmit) {
-    stepSymbol(symbolToEmit, false);
-  }
+  stepSymbol(action.symbol, false);
 }
 
 document.addEventListener("keydown", (e) => {
-  if (document.activeElement === elScriptInput) return;
-  const key = e.key.toUpperCase();
-  if (key === "W" || e.key === "ArrowUp") { e.preventDefault(); handleDirection("W"); }
-  if (key === "A" || e.key === "ArrowLeft") { e.preventDefault(); handleDirection("A"); }
-  if (key === "S" || e.key === "ArrowDown") { e.preventDefault(); handleDirection("S"); }
-  if (key === "D" || e.key === "ArrowRight") { e.preventDefault(); handleDirection("D"); }
+  if (!modal.classList.contains("hidden")) {
+    if (e.key === "Escape") {
+      closeDiagram();
+      return;
+    }
+    if (e.key === "Tab") {
+      const focusable = [...modal.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+    return;
+  }
+  if (isTextEntryTarget(e.target)) return;
+
+  const direction = directionForKey(e.key);
+  if (direction) {
+    e.preventDefault();
+    handleDirection(direction);
+  }
 });
 
 document.querySelectorAll(".key-btn").forEach((btn) => {
@@ -708,10 +694,25 @@ function renderLoop() {
 }
 
 const modal = document.getElementById("diagram-modal");
-document.getElementById("btn-diagram").addEventListener("click", () => modal.classList.remove("hidden"));
-document.getElementById("btn-close-modal").addEventListener("click", () => modal.classList.add("hidden"));
+const diagramButton = document.getElementById("btn-diagram");
+const closeModalButton = document.getElementById("btn-close-modal");
+let modalReturnFocus = null;
+
+function openDiagram() {
+  modalReturnFocus = document.activeElement;
+  modal.classList.remove("hidden");
+  closeModalButton.focus();
+}
+
+function closeDiagram() {
+  modal.classList.add("hidden");
+  if (modalReturnFocus instanceof HTMLElement) modalReturnFocus.focus();
+}
+
+diagramButton.addEventListener("click", openDiagram);
+closeModalButton.addEventListener("click", closeDiagram);
 modal.addEventListener("click", (e) => {
-  if (e.target === modal) modal.classList.add("hidden");
+  if (e.target === modal) closeDiagram();
 });
 
 function populateDeltaTable() {
