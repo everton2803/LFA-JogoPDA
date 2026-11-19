@@ -1,0 +1,8 @@
+{
+  "name": "lfa-jogo-pda",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -1,7 +1,10 @@
-/**
- * Operação Cofre LIFO — Motor do Autômato de Pilha (PDA) + Planta Baixa Visual Top-Down
- * Fiel ao arquivo assalto_banco_nao_linear_pda.jff (8 estados: q0..q6, qf)
- */
+/** Operação Cofre LIFO — interface do jogo e planta baixa visual top-down. */
+import {
+  FINAL_STATE,
+  TRANSITIONS,
+  applyTransition,
+  createInitialConfiguration,
+} from "./src/pda.js";
 
 const STATES_META = {
   q0: { name: "Beco / Entrada",    x: 115, y: 290, color: "#38bdf8" },
@@ -29,29 +32,8 @@ const SYMBOL_DESC = {
   e: "Escapar na Garagem (topo Z)"
 };
 
-const TRANSITIONS = [
-  { from: "q0", read: "i", pop: "Z", to: "q1", push: ["Z"], desc: "Infiltra o saguão principal" },
-  { from: "q1", read: "c", pop: "Z", to: "q2", push: ["C", "Z"], desc: "Vai à Segurança e clona Cartão C" },
-  { from: "q1", read: "c", pop: "K", to: "q2", push: ["C", "K"], desc: "Vai à Segurança e empilha Cartão C sobre K" },
-  { from: "q2", read: "v", pop: "C", to: "q1", push: ["C"], desc: "Retorna da Segurança ao Saguão" },
-  { from: "q1", read: "k", pop: "Z", to: "q3", push: ["K", "Z"], desc: "Vai à TI e coleta Kit K" },
-  { from: "q1", read: "k", pop: "C", to: "q3", push: ["K", "C"], desc: "Vai à TI e empilha Kit K sobre C" },
-  { from: "q3", read: "v", pop: "K", to: "q1", push: ["K"], desc: "Retorna da TI ao Saguão" },
-  { from: "q1", read: "p", pop: "C", to: "q4", push: ["C"], desc: "Avança ao Portão Blindado com Cartão no topo" },
-  { from: "q1", read: "p", pop: "K", to: "q4", push: ["K"], desc: "Avança ao Portão Blindado com Kit no topo" },
-  { from: "q4", read: "d", pop: "C", to: "q4", push: [], desc: "Desarma leitor biométrico usando Cartão C (pop)" },
-  { from: "q4", read: "s", pop: "K", to: "q4", push: [], desc: "Detona trava mecânica usando Kit K (pop)" },
-  { from: "q4", read: "f", pop: "Z", to: "q5", push: ["Z"], desc: "Pilha limpa (Z): abre a porta do Cofre" },
-  { from: "q5", read: "m", pop: "Z", to: "q5", push: ["M", "Z"], desc: "Coleta 1º malote de dinheiro (+M)" },
-  { from: "q5", read: "m", pop: "M", to: "q5", push: ["M", "M"], desc: "Coleta malote adicional (+M)" },
-  { from: "q5", read: "r", pop: "M", to: "q6", push: ["M"], desc: "Sai do Cofre para o Corredor de Fuga" },
-  { from: "q6", read: "l", pop: "M", to: "q6", push: [], desc: "Oculta malote no fundo falso (pop M)" },
-  { from: "q6", read: "e", pop: "Z", to: "qf", push: ["Z"], desc: "Todos malotes ocultos (Z): fuga concluída!" }
-];
-
 let pda = {
-  state: "q0",
-  stack: ["Z"],
+  ...createInitialConfiguration(),
   tape: [],
   cursor: -1,
   status: "running",
@@ -97,8 +79,7 @@ function resetPDA(keepInput = true) {
   clearInterval(autoTimer);
   autoTimer = null;
   pda = {
-    state: "q0",
-    stack: ["Z"],
+    ...createInitialConfiguration(),
     tape: [],
     cursor: -1,
     status: "running",
@@ -142,11 +123,9 @@ function stepSymbol(symbol, fromScript = false) {
     pda.cursor = pda.tape.length - 1;
   }
 
-  const rule = TRANSITIONS.find(
-    (t) => t.from === pda.state && t.read === symbol && t.pop === top
-  );
+  const result = applyTransition(pda, symbol);
 
-  if (!rule) {
+  if (!result) {
     pda.status = "rejected";
     const reason = `Sem transição δ(${pda.state}, '${symbol}', ${top || "ε"}).`;
     pda.statusMessage = `REJEITADA: ${reason}`;
@@ -159,13 +138,10 @@ function stepSymbol(symbol, fromScript = false) {
     return false;
   }
 
-  pda.stack.pop();
-  for (let i = rule.push.length - 1; i >= 0; i--) {
-    pda.stack.push(rule.push[i]);
-  }
-
   const prevState = pda.state;
-  pda.state = rule.to;
+  const { rule } = result;
+  pda.stack = result.stack;
+  pda.state = result.state;
   enqueueMovement(prevState, pda.state);
 
   const pushedStr = rule.push.length ? rule.push.join("") : "λ";
@@ -175,7 +151,7 @@ function stepSymbol(symbol, fromScript = false) {
   });
 
   if (!fromScript) {
-    if (pda.state === "qf") {
+    if (pda.state === FINAL_STATE) {
       pda.status = "accepted";
       pda.statusMessage = "ACEITA! O agente alcançou a Garagem (qf) com a pilha válida.";
       showToast("Missão cumprida! Sequência ACEITA pelo PDA.");
@@ -211,7 +187,7 @@ function advanceScriptStep() {
     clearInterval(autoTimer);
     autoTimer = null;
     if (pda.status !== "rejected") {
-      if (pda.state === "qf") {
+      if (pda.state === FINAL_STATE) {
         pda.status = "accepted";
         pda.statusMessage = "ACEITA! Toda a fita foi consumida e o autômato parou no estado final qf.";
       } else {
@@ -241,7 +217,7 @@ function advanceScriptStep() {
   if (scriptIndex === scriptQueue.length) {
     clearInterval(autoTimer);
     autoTimer = null;
-    if (pda.state === "qf") {
+    if (pda.state === FINAL_STATE) {
       pda.status = "accepted";
       pda.statusMessage = "ACEITA! Toda a fita foi consumida e o autômato alcançou qf.";
       showToast("Sequência ACEITA pelo PDA!");
