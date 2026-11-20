@@ -7,6 +7,7 @@ import { SYMBOL_DESC } from "../src/game-config.js";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const script = readFileSync(new URL("../script.js", import.meta.url), "utf8");
+const style = readFileSync(new URL("../style.css", import.meta.url), "utf8");
 
 test("the SVG diagram labels every canonical transition and state exactly once", () => {
   const diagramTransitions = [...html.matchAll(/<text data-transition="([^"]*)"[^>]*>([^<]*)<\/text>/g)]
@@ -47,4 +48,18 @@ test("the delta table and symbol legend are rendered from the PDA model", () => 
   assert.match(html, /id="symbol-legend"/);
   assert.match(script, /INPUT_SYMBOLS\.map\(/);
   assert.deepEqual(Object.keys(SYMBOL_DESC).sort(), [...INPUT_SYMBOLS].sort());
+});
+
+test("feedback and directional controls expose accessible labels and live updates", () => {
+  assert.match(html, /id="toast-feedback"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /id="status-banner"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(html, /class="wasd-pad" role="group" aria-label="Controles direcionais"/);
+  assert.match(html, /aria-label="Mover para norte \(W\)"/);
+  assert.match(style, /:focus-visible\s*\{[^}]*outline:/s);
+  assert.match(html, /aria-labelledby="diagram-title"/);
+});
+
+test("the SVG diagram avoids invalid auto height attributes", () => {
+  assert.doesNotMatch(html, /<svg[^>]*\bheight=["']auto["']/i);
+  assert.match(style, /\.pda-diagram\s*\{[^}]*height:\s*auto/s);
 });

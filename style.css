@@ -122,6 +122,8 @@ body {
 
 canvas { display: block; width: 100%; max-width: 960px; height: auto; }
 
+.pda-diagram { display: block; width: 100%; height: auto; }
+
 .toast {
   position: absolute;
   bottom: 12px;
@@ -168,6 +170,11 @@ canvas { display: block; width: 100%; max-width: 960px; height: auto; }
 }
 
 .key-btn:hover, .key-btn:active { background: var(--accent); color: #082f49; }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
 
 .legend-grid {
   display: grid;
